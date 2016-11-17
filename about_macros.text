@@ -1,0 +1,409 @@
+Bringing typed, modular macros to OCaml
+=======================================
+
+This summer, I implemented a new macro system for OCaml, based on a
+design by Leo White and Jeremy Yallop
+[\[1\]](http://www.lpw25.net/ocaml2015-abs1.pdf).
+
+It is mainly an effort to make a “compile-time MetaOCaml”
+[\[2\]](http://okmij.org/ftp/ML/MetaOCaml.html).
+
+What does it look like?
+-----------------------
+
+The idea is to write explicitly staged code. There are two phases:
+compilation (phase 1) and execution (phase 0). The numbering seem
+counter-intuitive; it is mostly because, theoretically, there may be
+several macro expansion phases before compilation (macros inside
+macros), the execution being the last phase. In that case, it is more
+natural to refer to phases by 0, 1, 2, 3, etc. than to use negative
+numbers, or to introduce an abritrary offset.
+
+Compile-time values and functions can be declared using
+`static`{.ocaml} instead of `let`{.ocaml} in
+toplevel bindings:
+
+``` {.ocaml}
+# static x = 42;;
+val x : int = 42
+```
+
+Here, `x` is a compile-time value, although of course the difference is
+not visible in the toplevel.
+
+It is impossible to mix compile-time and runtime values as it wouldn't
+make sense:
+
+``` {.ocaml}
+# static x = 42;;
+val x : int = 42
+# let y = x + 1;;
+Error: Attempt to use value x of phase 1 in an environment of phase 0
+```
+
+If we try now to create a static `succ` function:
+
+``` {.ocaml}
+# static stat_succ x = x + 1;;
+Error: Attempt to use value + of phase 0 in an environment of phase 1
+```
+
+This happens because `(+)`{.ocaml} is part of the
+`Pervasives`{.ocaml} module, which is considered phase-0. To
+use it in phase 1, one must add a caret before its name, like so:
+
+``` {.ocaml}
+# static stat_succ x = ^Pervasives.(+) x 1;;
+val stat_succ : int -> int = <fun>
+```
+
+Or, alternatively:
+
+``` {.ocaml}
+# static stat_succ x = let open ^Pervasives in x + 1;;
+val stat_succ : int -> int = <fun>
+```
+
+This operation is called *module lifting*.
+
+Now, if we want to write macros, we will need a way to manipulate code
+fragments. This is done via *quotations*, *à la* MetaOCaml:
+
+``` {.ocaml}
+# static x = << int_of_string "42" >>;;
+val x : int expr = << Pervasives.int_of_string "42" >>
+```
+
+The result of a quotation is of type `'a expr`{.ocaml},
+where `'a`{.ocaml} is the type of the quoted expression.
+Note that we were able to use directly
+`Pervasives.int_of_string`{.ocaml} inside the quotation,
+without module lifting. That's because the code inside a quote is of
+phase 0: it is destined to be spliced inside phase-0 code during macro
+expansion.
+
+The splicing operator is the dollar and is used like so:
+
+``` {.ocaml}
+# $x;;
+- : int = 42
+```
+
+What actually happened here is that the quoted expression in `x` was
+evaluated to `42`, and this result was spliced into the code, just as if
+we had directly typed:
+
+``` {.ocaml}
+# 42;;
+- : int = 42
+```
+
+Splicing can be done in arbitrary expressions (as long as the types
+match):
+
+``` {.ocaml}
+# let () = Printf.printf "%d\n" ($x + 1);;
+43
+```
+
+Expressions can also be spliced inside quotations:
+
+``` {.ocaml}
+# static square x = << let y = $x in y * y >>;;
+val square : int expr -> int expr = <fun>
+# static z = << $(square <<42+1>>) >>;;
+val z : int expr = << let y_1 = 42 + 1  in y_1 * y_1 >>
+```
+
+Here is a classic example: a compile-time power function.
+
+``` {.ocaml}
+open ^Pervasives
+
+static rec power' n x =
+  if n = 0 then
+    << 1 >>
+  else if n mod 2 = 0 then
+    << let y = $(power' (n/2) x) in
+       Pervasives.( * ) y y >>
+  else
+    << Pervasives.( * ) $x $(power' (n-1) x) >>
+
+static power n =
+  << fun x -> $(power' n <<x>>) >>
+```
+
+The `power`{.ocaml} macro, of type
+`int -> (int -> int) expr`{.ocaml}, can then be used like
+this:
+
+``` {.ocaml}
+# let x = $(power 9) 2 ;;
+val x : int = 512
+```
+
+This is very similar to what would have been done in MetaOCaml. You may
+have noticed that there is only one splicing construct (`$`{.sourceCode
+.ocaml}), while MetaOCaml has two: *escape* (`.~`{.ocaml})
+and *run*. We chose to use the same operator because the semantics are
+the same, but under the hood, toplevel splices (that is, splices that
+are not inside a quotation) are implemented differently than splices
+inside quotations (see below).
+
+For a more "real-world" example, you may consider the `printf` example
+from [\[1\]](http://www.lpw25.net/ocaml2015-abs1.pdf). A runtime
+`printf` function may be defined like this:
+
+``` {.ocaml}
+type (_, _) fmt =
+    Int : (int → 'a, 'a) fmt
+  | Lit : string → ('a, 'a) fmt
+  | Cat : ('a, 'b) fmt * ('b, 'c) fmt → ('a, 'c) fmt
+let (%) x y = Cat (x, y)
+
+(* analogous to "(%d, %d)" *)
+let p = Lit "(" % Int % Lit "," % Int % Lit ")"
+
+let rec printk :
+    type 'a 'b. (string → 'b) → ('a, 'b) fmt → 'a =
+  fun k → function
+    Int → fun s → k (string_of_int s)
+  | Lit s → k s
+  | Cat (l, r) →
+      printk (fun x → printk (fun y → k (x ˆ y)) r) l
+
+let sprintf fmt = printk (fun x → x) fmt
+```
+
+We may then write:
+
+``` {.ocaml}
+# sprintf p 3 4 ;;
+- : string = "(3,4)"
+```
+
+The `sprintf` abstraction is more pleasant than writing by hand
+`"(" ^ string_of_int 3 ^ "," ^ string_of_int 4 ^ ")"`, but it comes at
+an interpretative cost.
+
+To avoid this cost, the `printk` function can be staged into a macro:
+
+``` {.ocaml}
+static rec printk :
+    type a b. (string expr -> b expr) -> (a, b) fmt -> a expr =
+  fun k -> function
+  | Int -> << fun s -> $(k <<string_of_int s>>) >>
+  | Lit s -> k (Expr.of_string s)
+  | Cat (l, r) ->
+      printk (fun x ->
+        printk (fun y -> k << $x ^ $y >>) r) l
+
+static sprintf fmt = printk (fun x -> x) fmt
+```
+
+We may then write a function that prints a pair:
+
+``` {.ocaml}
+# sprintf p ;;
+- : (int -> int -> string) expr =
+  << fun s_1 ->
+       fun s_2 ->
+         "(" ^ Pervasives.string_of_int s_1 ^ ","
+           ^ Pervasives.string_of_int s_2 ˆ ")" >>
+# let print_pair = $(sprintf p) ;;
+val print_pair : int -> int -> string = <fun>
+```
+
+We get the abstraction we wanted at zero interpretative cost.
+
+Integration within modules
+--------------------------
+
+We want macros to be seamlessly integrated into OCaml's module system.
+
+For example, modules can export static values as well as regular values.
+The above printing functions could be gathered in a `sprintf.ml` file. A
+`sprintf.mli` interface file may then be written:
+
+``` {.ocaml}
+type (_, _) fmt =
+    Int : (int -> 'a, 'a) fmt
+  | Lit : string -> ('a, 'a) fmt
+  | Cat : ('a, 'b) fmt * ('b, 'c) fmt -> ('a, 'c) fmt
+val ( % ) : ('a, 'b) fmt -> ('b, 'c) fmt -> ('a, 'c) fmt = <fun>
+static val sprintf : ('a, string) fmt -> 'a expr = <fun>
+```
+
+We have hidden `printk` and exported only `sprintf`. Note the
+`static val`{.ocaml} instead of just `val`{.sourceCode
+.ocaml}.
+
+The static components of the `Sprintf`{.ocaml} module will
+be saved to a `sprintf.cmm` file (the format is the same as for `.cmo`
+files). The `sprintf` macro can now be used in other files.
+
+Implementation details
+----------------------
+
+### Execution of static code
+
+In order to run code at compile-time, all static bindings and splices
+are translated to bytecode, then executed using the
+`Meta.reify_bytecode` function available in the compiler (this function
+is the one used in the toplevel to execute phrases).
+
+One problem is that the optimised versions of the compiler, namely
+`ocamlc.opt` and `ocamlopt.opt`, are native programs; but
+`Meta.reify_bytecode` can only be called from bytecode programs. This
+limitation seems to exist because it would be slightly non-trivial for
+native and bytecode programs to share a heap.
+
+One solution would be to compile macros and splices to native code, and
+then link them dynamically to the compiler. But there is no portable way
+to do dynamic linking in OCaml. The existing solution, developed by
+Alain Frisch, resorts to the GNU linking toolchain.
+
+The retained solution for optimised versions of the compiler is
+therefore the following: in `ocamlc.opt` and `ocamlopt.opt`, static code
+is translated to bytecode and written to a temporary `.cmo` file; this
+file is then linked with its dependencies into an executable bytecode
+file. The compiler then calls the external program `ocamlrun` on this
+file.
+
+This way of doing things is portable, but not very aesthetic. It could
+be made more natural by integrating a way to execute native code
+on-the-fly inside a native program, as proposed by Meurer and Fischbach
+[\[3\]](http://arxiv.org/pdf/1110.1029v2.pdf).
+
+### Quoting
+
+The quoting part, developed by Leo White, is very similar to what can be
+found in MetaOCaml, although we did not reuse MetaOCaml code directly.
+It consists of a set of combinators transforming typed syntax trees into
+AST-generating lambda code. This lambda code is destined to be executed
+as part of the phase-1 code.
+
+    typed AST (Typedtree)
+            |
+            |
+            v
+    lambda code (Lambda)
+            |
+            |
+            v
+    untyped AST (Parsetree)
+
+The generated AST is untyped, mainly to avoid the hassle of propagating
+type information to the generated tree. Instead, the typechecker is
+called on the quoted tree during splicing.
+
+### Splicing
+
+Static code is constructed in such a way that it returns, when
+evaluated, an array of untyped ASTs
+(`Parsetree.expression array`{.ocaml}). These ASTs are then
+typed and inserted in place of the splicings into the big syntax tree of
+runtime code before it is translated to lambda code.
+
+In the case of `ocamlc.opt` and `ocamlopt.opt`, the splice array needs
+to be marshalled to a temporary file (since the compiler cannot share
+memory with an external program).
+
+Note that the above only applies to *toplevel splices*, that is, splices
+that are not in a quotation. Splices inside quotations do not imply any
+communication between phases, and are only here for the typechecker to
+keep track of phase. Once the typechecker has done its job, they are
+mostly ignored.
+
+Future plans
+------------
+
+All the examples presented above are working examples. The corresponding
+[repository](https://github.com/OlivierNicole/ocaml/tree/macros) is
+available, but rapidly evolving and thus very unstable.
+
+The following features are still missing:
+
+### Path closures
+
+The above code for `power`{.ocaml} is not very clear. For
+clarity, you may want to write the following code:
+
+``` {.ocaml}
+module Power : sig
+  static val power : int -> (int -> int) expr
+end = struct
+  let square x = x * x
+
+  open ^Pervasives
+
+  (* int -> int expr -> int expr *)
+  static rec power' n x =
+    if n = 0 then
+      << 1 >>
+    else if n mod 2 = 0 then
+      << square $(power' (n/2) x) >>
+    else
+      << Pervasives.( * ) $x $(power' (n-1) x) >>
+
+  static power n =
+    << fun x -> $(power' n <<x>>) >>
+end
+```
+
+Here, the `power` macro will be expanded to a fragment of code that uses
+the `square` runtime function. But that function is not available
+outside of the `Power`{.ocaml} module! That's why it is not
+allowed to quote free identifiers that may be spliced in a different
+context.
+
+This is enforced with a notion of *stage* (not to be confused with
+*phase*) that is already present in MetaOCaml. The above code will be
+rejected with the error:
+
+    Error: Attempt to use value square of stage 0 in an environment of stage 1
+
+The objective, in the final implementation, is to automatically
+transform the above code into the following:
+
+``` {.ocaml}
+module Power : sig
+  module Closure1 : sig
+    val square : int -> int
+    macro power : int -> (int -> int) expr
+  end
+end = (* ... *)
+```
+
+``` {.ocaml}
+# Power.power 5 (* expands to Power.Closure1.power 5 *) ;;
+- : int expr = << fun x_1 -> x_1 * (Closure1.square (Closure1.square (x_1 * 1))) >>
+```
+
+### Static modules and functors
+
+It should be possible to write *static modules*, i.e. modules with only
+static components:
+
+``` {.ocaml}
+static module Foo = struct
+  let x = << 42 >>
+end
+
+let () = print_int $(Foo.x)
+```
+
+Currently, functors do not support static values, neither in their
+argument nor in their result. Adding this feature will allow for very
+convenient static specialization mechanisms.
+
+------------------------------------------------------------------------
+
+1.  White, Leo and Yallop, Jeremy, [Modular
+    macros](http://www.lpw25.net/ocaml2015-abs1.pdf), OCaml
+    Workshop 2015.
+2.  Kiselyov, Oleg, [BER
+    MetaOCaml](http://okmij.org/ftp/ML/MetaOCaml.html).
+3.  Meurer, Benedikt and Fischbach, Marcell, [Towards a native toplevel
+    for the OCaml language](http://arxiv.org/pdf/1110.1029v2.pdf).
+
