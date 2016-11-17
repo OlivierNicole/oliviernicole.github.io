@@ -48,7 +48,7 @@ code > span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Inf
 <body>
 <h1 id="bringing-typed-modular-macros-to-ocaml">Bringing typed, modular macros to OCaml</h1>
 <p><span style="font-size: 0.7em; font-variant:small-caps;">Last updated: October 2016</span></p>
-<p>As part of my OCaml Labs research project, I implemented a new macro system for OCaml, based on a design by Leo White and Jeremy Yallop <a href="http://www.lpw25.net/ocaml2015-abs1.pdf">[1]</a>.</p>
+<p>As part of my <a href="https://github.com/ocamllabs">OCaml Labs</a> research project, I implemented a new macro system for OCaml, based on a design by Leo White and Jeremy Yallop <a href="http://www.lpw25.net/ocaml2015-abs1.pdf">[1]</a>.</p>
 <p>It is mainly an effort to make a “compile-time MetaOCaml” <a href="http://okmij.org/ftp/ML/MetaOCaml.html">[2]</a>.</p>
 <h2 id="what-does-it-look-like">What does it look like?</h2>
 <p>The idea is to write explicitly staged code. There are two phases: compilation (phase 1) and execution (phase 0). The numbering seem counter-intuitive; it is mostly because, theoretically, there may be several macro expansion phases before compilation (macros inside macros), the execution being the last phase. In that case, it is more natural to refer to phases by 0, 1, 2, 3, etc. than to use negative numbers, or to introduce an abritrary offset.</p>

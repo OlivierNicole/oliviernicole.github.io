@@ -3,9 +3,9 @@ Bringing typed, modular macros to OCaml
 
 <span style="font-size: 0.7em; font-variant:small-caps;">Last updated: October 2016</span>
 
-As part of my OCaml Labs research project, I implemented a new macro system for
-OCaml, based on a design by Leo White and Jeremy Yallop
-[\[1\]](http://www.lpw25.net/ocaml2015-abs1.pdf).
+As part of my [OCaml Labs](https://github.com/ocamllabs) research project, I
+implemented a new macro system for OCaml, based on a design by Leo White and
+Jeremy Yallop [\[1\]](http://www.lpw25.net/ocaml2015-abs1.pdf).
 
 It is mainly an effort to make a “compile-time MetaOCaml”
 [\[2\]](http://okmij.org/ftp/ML/MetaOCaml.html).
