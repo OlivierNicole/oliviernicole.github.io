@@ -1,6 +1,6 @@
-Bringing typed, modular macros to OCaml
-=======================================
-
+---
+title: Bringing typed, modular macros to OCaml
+---
 <span style="font-size: 0.7em; font-variant:small-caps;">Last updated: October 2016</span>
 
 As part of my [OCaml Labs](https://github.com/ocamllabs) research project, I
