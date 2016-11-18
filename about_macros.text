@@ -27,7 +27,7 @@ toplevel bindings:
 
 ``` {.ocaml}
 # static x = 42;;
-val x : int = 42
+static val x : int = 42
 ```
 
 Here, `x` is a compile-time value, although of course the difference is
@@ -38,7 +38,7 @@ make sense:
 
 ``` {.ocaml}
 # static x = 42;;
-val x : int = 42
+static val x : int = 42
 # let y = x + 1;;
 Error: Attempt to use value x of phase 1 in an environment of phase 0
 ```
@@ -56,14 +56,14 @@ use it in phase 1, one must add a caret before its name, like so:
 
 ``` {.ocaml}
 # static stat_succ x = ^Pervasives.(+) x 1;;
-val stat_succ : int -> int = <fun>
+static val stat_succ : int -> int = <fun>
 ```
 
 Or, alternatively:
 
 ``` {.ocaml}
 # static stat_succ x = let open ^Pervasives in x + 1;;
-val stat_succ : int -> int = <fun>
+static val stat_succ : int -> int = <fun>
 ```
 
 This operation is called *module lifting*.
@@ -72,17 +72,19 @@ Now, if we want to write macros, we will need a way to manipulate code
 fragments. This is done via *quotations*, *à la* MetaOCaml:
 
 ``` {.ocaml}
-# static x = << int_of_string "42" >>;;
-val x : int expr = << Pervasives.int_of_string "42" >>
+# macro x = << int_of_string "42" >>;;
+macro x : int expr
 ```
 
-The result of a quotation is of type `'a expr`{.ocaml},
-where `'a`{.ocaml} is the type of the quoted expression.
-Note that we were able to use directly
-`Pervasives.int_of_string`{.ocaml} inside the quotation,
-without module lifting. That's because the code inside a quote is of
-phase 0: it is destined to be spliced inside phase-0 code during macro
-expansion.
+Note the replacement of the keyword `static` with `macro`. Quoting is only
+allowed in `macro` declarations, to avoid capture of local identifiers (see path
+closures below).
+
+The result of a quotation is of type `'a expr`{.ocaml}, where `'a`{.ocaml} is
+the type of the quoted expression.  Also note that we were able to use directly
+`Pervasives.int_of_string`{.ocaml} inside the quotation, without module lifting.
+That's because the code inside a quote is of phase 0: it is destined to be
+spliced inside phase-0 code during macro expansion.
 
 The splicing operator is the dollar and is used like so:
 
@@ -111,11 +113,35 @@ match):
 Expressions can also be spliced inside quotations:
 
 ``` {.ocaml}
-# static square x = << let y = $x in y * y >>;;
-val square : int expr -> int expr = <fun>
-# static z = << $(square <<42+1>>) >>;;
-val z : int expr = << let y_1 = 42 + 1  in y_1 * y_1 >>
+# macro square = << fun x -> x * x >>;;
+macro square : (int -> int) expr
+# macro n = << $square (42+1) >>;;
+macro n : int expr
+# $n;;
+- : int = 1849
 ```
+
+You can visualize what code was actually spliced in with the `-dsource` or
+`-dparsetree` option:
+
+``` {.ocaml}
+# $n;;
+$n;;
+splice #0:
+(fun x_1  -> Pervasives(*global*).( * ) x_1 x_1)
+             (Pervasives(*global*).(+) 42 1)
+- : int = 1849
+```
+
+Pretty ugly, huh? Several things can be noted:
+* `x` became `x_1`: bound identifiers inside a quotation are given a unique
+  name, ensuring that they are not captured inadvertently by another quotation.
+  For example, consider doing:
+  ``` {.ocaml}
+  macro m = << let x = 42 in x + 1 >>
+  macro n = << fun x -> $m + x >>
+  ```
+  Without this mechanism, the `x` bound in `m` would be captured 
 
 Here is a classic example: a compile-time power function.
 
