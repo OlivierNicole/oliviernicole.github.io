@@ -289,7 +289,7 @@ macro rec power' n x =
   else
     <<Pervasives.( * ) $x $(power' (pred n) x)>>
 ```
-As you can see, applicating `power'`{.ocaml} will splice in some code, possibly
+As you can see, applying `power'`{.ocaml} will result in some code, possibly
 containing the run-time `square` function. But isn't that dangerous? For
 example, what if I put `square`, `power'` and `power` in a module that only
 exports `power`? With a naive implementation of macros, the result of splicing

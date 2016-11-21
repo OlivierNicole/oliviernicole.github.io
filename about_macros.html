@@ -200,7 +200,7 @@ macro sprintf : (&#39;a, <span class="dt">string</span>) fmt -&gt; &#39;a expr =
     <span class="st">&lt;&lt;square $(power&#39; (n/2) x)&gt;&gt;</span>
   <span class="kw">else</span>
     <span class="st">&lt;&lt;Pervasives.( * ) $x $(power&#39; (pred n) x)&gt;&gt;</span></code></pre></div>
-<p>As you can see, applicating <code class="sourceCode ocaml">power&#39;</code> will splice in some code, possibly containing the run-time <code>square</code> function. But isn't that dangerous? For example, what if I put <code>square</code>, <code>power'</code> and <code>power</code> in a module that only exports <code>power</code>? With a naive implementation of macros, the result of splicing that macro would be an error like <code>Unbound value square</code>.</p>
+<p>As you can see, applying <code class="sourceCode ocaml">power&#39;</code> will result in some code, possibly containing the run-time <code>square</code> function. But isn't that dangerous? For example, what if I put <code>square</code>, <code>power'</code> and <code>power</code> in a module that only exports <code>power</code>? With a naive implementation of macros, the result of splicing that macro would be an error like <code>Unbound value square</code>.</p>
 <p>To avoid that, a macro &quot;carries&quot; all the free identifiers that are used in its body in what we call a <em>path closure</em>. Additionnally, every macro takes an implicit path argument when it's called.</p>
 <p>To see the result of macro expansion more easily, you can use <code>;;;</code> (triple semicolon) that lets you evaluate static values in the toplevel:</p>
 <div class="sourceCode"><pre class="sourceCode ocaml"><code class="sourceCode ocaml"># <span class="kw">let</span> x = <span class="dv">42</span>;;
