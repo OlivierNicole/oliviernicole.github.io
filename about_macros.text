@@ -146,11 +146,11 @@ open ^Pervasives
 
 macro rec power' n x =
   if n = 0 then
-    <<1>>
+    << 1 >>
   else if n mod 2 = 0 then
-    <<square $(power' (n/2) x)>>
+    << square $(power' (n/2) x) >>
   else
-    <<Pervasives.( * ) $x $(power' (pred n) x)>>
+    << Pervasives.( * ) $x $(power' (pred n) x) >>
 
 macro power n =
   << fun x -> $(power' n <<x>>) >>
@@ -234,7 +234,7 @@ macro sprintf fmt = printk (fun x -> x) fmt
 We may then write a function that prints a pair:
 
 ``` {.ocaml}
-static p = Lit "(" % Int % Lit "," % Int % Lit ")";;
+# static p = Lit "(" % Int % Lit "," % Int % Lit ")";;
 static val p : (int -> int -> '_a, '_a) fmt =
   Cat (Cat (Cat (Cat (Lit "(", Int), Lit ","), Int), Lit ")")
 # let print_pair = $(sprintf p);;
