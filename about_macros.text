@@ -8,7 +8,8 @@ implemented a new macro system for OCaml, based on a design by Leo White and
 Jeremy Yallop [\[1\]](http://www.lpw25.net/ocaml2015-abs1.pdf).
 
 It is mainly an effort to make a “compile-time MetaOCaml”
-[\[2\]](http://okmij.org/ftp/ML/MetaOCaml.html).
+[\[2\]](http://okmij.org/ftp/ML/MetaOCaml.html). If you want to try it out, the
+repository is [accessible](https://github.com/OlivierNicole/ocaml/tree/macros).
 
 What does it look like?
 -----------------------
