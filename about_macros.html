@@ -81,8 +81,8 @@ macro x : <span class="dt">int</span> expr = <span class="st">&lt;&lt; Pervasive
 <p>The splicing operator is the dollar and is used like so:</p>
 <div class="sourceCode"><pre class="sourceCode ocaml"><code class="sourceCode ocaml"># $x;;
 - : <span class="dt">int</span> = <span class="dv">42</span></code></pre></div>
-<p>What actually happened here is that the quoted expression in <code>x</code> was evaluated to <code>42</code>, and this result was spliced into the code, just as if we had directly typed:</p>
-<div class="sourceCode"><pre class="sourceCode ocaml"><code class="sourceCode ocaml"># <span class="dv">42</span>;;
+<p>What actually happened here is that the quoted expression in <code>x</code> was spliced into the code and evaluated (at runtime) to <code>42</code>, just as if we had directly typed:</p>
+<div class="sourceCode"><pre class="sourceCode ocaml"><code class="sourceCode ocaml"># int_of_string <span class="st">&quot;42&quot;</span>;;
 - : <span class="dt">int</span> = <span class="dv">42</span></code></pre></div>
 <p>Splicing can be done in arbitrary expressions (as long as the types match):</p>
 <div class="sourceCode"><pre class="sourceCode ocaml"><code class="sourceCode ocaml"># <span class="kw">let</span> () = Printf<span class="kw">.</span>printf <span class="st">&quot;%d</span><span class="ch">\n</span><span class="st">&quot;</span> ($x + <span class="dv">1</span>);;

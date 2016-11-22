@@ -96,12 +96,12 @@ The splicing operator is the dollar and is used like so:
 - : int = 42
 ```
 
-What actually happened here is that the quoted expression in `x` was
-evaluated to `42`, and this result was spliced into the code, just as if
-we had directly typed:
+What actually happened here is that the quoted expression in `x` was spliced
+into the code and evaluated (at runtime) to `42`, just as if we had directly
+typed:
 
 ``` {.ocaml}
-# 42;;
+# int_of_string "42";;
 - : int = 42
 ```
 
