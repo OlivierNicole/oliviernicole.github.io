@@ -342,7 +342,7 @@ end) = struct
   let x = X.succ 42
 end
 
-module M = F(^Pervasives)
+static module M = F(^Pervasives)
 (* M.x = 43 *)
 ```
 
