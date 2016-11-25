@@ -1,7 +1,7 @@
 ---
 title: Bringing typed, modular macros to OCaml
 ---
-<span style="font-size: 0.7em; font-variant:small-caps;">Last updated: 21 Nov 2016</span>
+<span style="font-size: 0.7em; font-variant:small-caps;">Last updated: 25 Nov 2016</span>
 
 As part of my [OCaml Labs](https://github.com/ocamllabs) research project, I
 implemented a new macro system for OCaml, based on a design by Leo White and
