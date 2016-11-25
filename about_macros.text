@@ -69,7 +69,9 @@ Or, alternatively:
 static val stat_succ : int -> int = <fun>
 ```
 
-This operation is called *module lifting*.
+This operation is called *module lifting*. For phase separation to be enforced,
+only external modules (i.e. modules in separate files, separately compiled) can
+be lifted.
 
 Now, if we want to write macros, we will need a way to manipulate code
 fragments. This is done via *quotations*, *à la* MetaOCaml:
