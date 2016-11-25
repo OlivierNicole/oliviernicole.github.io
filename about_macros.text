@@ -457,9 +457,12 @@ All the examples presented above are working examples. The corresponding
 [repository](https://github.com/OlivierNicole/ocaml/tree/macros) is
 available, but rapidly evolving and thus very unstable.
 
-
 You are very welcome to try out macros. It will be very useful if you report any
 bugs or inconvenience by opening an issue on this repo.
+
+If you want to set up an Opam switch with our version of the compiler, you must
+be aware that some Opam packages may not compile. For details, see the readme in
+the repo.
 
 Let me know if you write something nice involving macros!
 
