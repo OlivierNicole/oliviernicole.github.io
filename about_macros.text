@@ -457,7 +457,8 @@ Testing and contributing
 
 All the examples presented above are working examples. The corresponding
 [repository](https://github.com/OlivierNicole/ocaml/tree/macros) is
-available, but rapidly evolving and thus very unstable.
+available. Of course, as a prototype it is evolving rapidly and we cannot
+guarantee that future changes won't break your code.
 
 You are very welcome to try out macros. It will be very useful if you report any
 bugs or inconvenience by opening an issue on this repo.
