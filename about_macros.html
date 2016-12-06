@@ -62,30 +62,30 @@ static <span class="kw">val</span> x : <span class="dt">int</span> = <span class
 <div class="sourceCode"><pre class="sourceCode ocaml"><code class="sourceCode ocaml"># static x = <span class="dv">42</span>;;
 static <span class="kw">val</span> x : <span class="dt">int</span> = <span class="dv">42</span>
 # <span class="kw">let</span> y = x + <span class="dv">1</span>;;
-Error: Attempt <span class="kw">to</span> use value x <span class="kw">of</span> phase <span class="dv">1</span> <span class="kw">in</span> an environment <span class="kw">of</span> phase <span class="dv">0</span></code></pre></div>
+<span class="dt">Error</span>: <span class="dt">Attempt</span> <span class="kw">to</span> use value x <span class="kw">of</span> phase <span class="dv">1</span> <span class="kw">in</span> an environment <span class="kw">of</span> phase <span class="dv">0</span></code></pre></div>
 <p>If we try now to create a static <code>succ</code> function:</p>
 <div class="sourceCode"><pre class="sourceCode ocaml"><code class="sourceCode ocaml"># static stat_succ x = x + <span class="dv">1</span>;;
-Error: Attempt <span class="kw">to</span> use value + <span class="kw">of</span> phase <span class="dv">0</span> <span class="kw">in</span> an environment <span class="kw">of</span> phase <span class="dv">1</span></code></pre></div>
-<p>This happens because <code class="sourceCode ocaml">(+)</code> is part of the <code class="sourceCode ocaml">Pervasives</code> module, which is considered phase-0. To use it in phase 1, one must add a caret before its name, like so:</p>
-<div class="sourceCode"><pre class="sourceCode ocaml"><code class="sourceCode ocaml"># static stat_succ x = ^Pervasives.(+) x <span class="dv">1</span>;;
+<span class="dt">Error</span>: <span class="dt">Attempt</span> <span class="kw">to</span> use value + <span class="kw">of</span> phase <span class="dv">0</span> <span class="kw">in</span> an environment <span class="kw">of</span> phase <span class="dv">1</span></code></pre></div>
+<p>This happens because <code class="sourceCode ocaml">(+)</code> is part of the <code class="sourceCode ocaml"><span class="dt">Pervasives</span></code> module, which is considered phase-0. To use it in phase 1, one must add a tilda (<code>~</code>) before its name, like so:</p>
+<div class="sourceCode"><pre class="sourceCode ocaml"><code class="sourceCode ocaml"># static stat_succ x = ~Pervasives<span class="kw">.</span>(+) x <span class="dv">1</span>;;
 static <span class="kw">val</span> stat_succ : <span class="dt">int</span> -&gt; <span class="dt">int</span> = &lt;<span class="kw">fun</span>&gt;</code></pre></div>
 <p>Or, alternatively:</p>
-<div class="sourceCode"><pre class="sourceCode ocaml"><code class="sourceCode ocaml"># static stat_succ x = <span class="kw">let</span> <span class="kw">open</span> ^Pervasives <span class="kw">in</span> x + <span class="dv">1</span>;;
+<div class="sourceCode"><pre class="sourceCode ocaml"><code class="sourceCode ocaml"># static stat_succ x = <span class="kw">let</span> <span class="ot">open</span> ~<span class="dt">Pervasives</span> <span class="kw">in</span> x + <span class="dv">1</span>;;
 static <span class="kw">val</span> stat_succ : <span class="dt">int</span> -&gt; <span class="dt">int</span> = &lt;<span class="kw">fun</span>&gt;</code></pre></div>
 <p>This operation is called <em>module lifting</em>. For phase separation to be enforced, only external modules (i.e. modules in separate files, separately compiled) can be lifted.</p>
 <p>Now, if we want to write macros, we will need a way to manipulate code fragments. This is done via <em>quotations</em>, <em>à la</em> MetaOCaml:</p>
 <div class="sourceCode"><pre class="sourceCode ocaml"><code class="sourceCode ocaml"># macro x = <span class="st">&lt;&lt; int_of_string &quot;42&quot; &gt;&gt;</span>;;
 macro x : <span class="dt">int</span> expr = <span class="st">&lt;&lt; Pervasives(*global*).int_of_string &quot;42&quot; &gt;&gt;</span></code></pre></div>
 <p>Note the replacement of the keyword <code>static</code> with <code>macro</code>. Quoting is only allowed in <code>macro</code> declarations, to avoid capture of local identifiers (see path closures below).</p>
-<p>The result of a quotation is of type <code class="sourceCode ocaml">&#39;a expr</code>, where <code class="sourceCode ocaml">&#39;a</code> is the type of the quoted expression. Also note that we were able to use directly <code class="sourceCode ocaml">Pervasives.<span class="dt">int_of_string</span></code> inside the quotation, without module lifting. That's because the code inside a quote is of phase 0: it is destined to be spliced inside phase-0 code during macro expansion.</p>
+<p>The result of a quotation is of type <code class="sourceCode ocaml">&#39;a expr</code>, where <code class="sourceCode ocaml">&#39;a</code> is the type of the quoted expression. Also note that we were able to use directly <code class="sourceCode ocaml">Pervasives<span class="kw">.</span>int_of_string</code> inside the quotation, without module lifting. That's because the code inside a quote is of phase 0: it is destined to be spliced inside phase-0 code during macro expansion.</p>
 <p>The splicing operator is the dollar and is used like so:</p>
 <div class="sourceCode"><pre class="sourceCode ocaml"><code class="sourceCode ocaml"># $x;;
 - : <span class="dt">int</span> = <span class="dv">42</span></code></pre></div>
 <p>What actually happened here is that the quoted expression in <code>x</code> was spliced into the code and evaluated (at runtime) to <code>42</code>, just as if we had directly typed:</p>
-<div class="sourceCode"><pre class="sourceCode ocaml"><code class="sourceCode ocaml"># <span class="dt">int_of_string</span> <span class="st">&quot;42&quot;</span>;;
+<div class="sourceCode"><pre class="sourceCode ocaml"><code class="sourceCode ocaml"># int_of_string <span class="st">&quot;42&quot;</span>;;
 - : <span class="dt">int</span> = <span class="dv">42</span></code></pre></div>
 <p>Splicing can be done in arbitrary expressions (as long as the types match):</p>
-<div class="sourceCode"><pre class="sourceCode ocaml"><code class="sourceCode ocaml"># <span class="kw">let</span> () = <span class="dt">Printf</span>.printf <span class="st">&quot;%d</span><span class="ch">\n</span><span class="st">&quot;</span> ($x + <span class="dv">1</span>);;
+<div class="sourceCode"><pre class="sourceCode ocaml"><code class="sourceCode ocaml"># <span class="kw">let</span> () = Printf<span class="kw">.</span>printf <span class="st">&quot;%d</span><span class="ch">\n</span><span class="st">&quot;</span> ($x + <span class="dv">1</span>);;
 <span class="dv">43</span></code></pre></div>
 <p>Expressions can also be spliced inside quotations:</p>
 <div class="sourceCode"><pre class="sourceCode ocaml"><code class="sourceCode ocaml"># macro square = <span class="st">&lt;&lt; fun x -&gt; x * x &gt;&gt;</span>;;
@@ -101,13 +101,13 @@ macro n : <span class="dt">int</span> expr =
 <div class="sourceCode"><pre class="sourceCode ocaml"><code class="sourceCode ocaml"># $n;;
 $n;;
 splice #<span class="dv">0</span>:
-(<span class="kw">fun</span> x_3  -&gt; Pervasives<span class="co">(*global*)</span>.( * ) x_3 x_3)
-             (Pervasives<span class="co">(*global*)</span>.(+) <span class="dv">42</span> <span class="dv">1</span>)
+(<span class="kw">fun</span> x_3  -&gt; <span class="dt">Pervasives</span><span class="co">(*global*)</span>.( * ) x_3 x_3)
+             (<span class="dt">Pervasives</span><span class="co">(*global*)</span>.(+) <span class="dv">42</span> <span class="dv">1</span>)
 - : <span class="dt">int</span> = <span class="dv">1849</span></code></pre></div>
 <p>Here is a classic example: a compile-time power function.</p>
 <div class="sourceCode"><pre class="sourceCode ocaml"><code class="sourceCode ocaml"><span class="kw">let</span> square x = x * x
 
-<span class="kw">open</span> ^Pervasives
+<span class="ot">open</span> ~<span class="dt">Pervasives</span>
 
 macro <span class="kw">rec</span> power&#39; n x =
   <span class="kw">if</span> n = <span class="dv">0</span> <span class="kw">then</span>
@@ -125,20 +125,20 @@ macro power n =
 <p>This is very similar to what would have been done in MetaOCaml. You may have noticed that there is only one splicing construct (<code class="sourceCode ocaml">$</code>), while MetaOCaml has two: <em>escape</em> (<code class="sourceCode ocaml">.~</code>) and <em>run</em>. We chose to use the same operator because the semantics are the same, but under the hood, toplevel splices (that is, splices that are not inside a quotation) are implemented differently than splices inside quotations (see below).</p>
 <p>For a more &quot;real-world&quot; example, you may consider the <code>printf</code> example from <a href="http://www.lpw25.net/ocaml2015-abs1.pdf">[1]</a>. A runtime <code>printf</code> function may be defined like this:</p>
 <div class="sourceCode"><pre class="sourceCode ocaml"><code class="sourceCode ocaml"><span class="kw">type</span> (_, _) fmt =
-    Int : (<span class="dt">int</span> → &#39;a, &#39;a) fmt
-  | Lit : <span class="dt">string</span> → (&#39;a, &#39;a) fmt
-  | Cat : (&#39;a, &#39;b) fmt * (&#39;b, &#39;c) fmt → (&#39;a, &#39;c) fmt
-<span class="kw">let</span> (%) x y = Cat (x, y)
+    <span class="dt">Int</span> : (<span class="dt">int</span> → &#39;a, &#39;a) fmt
+  | <span class="dt">Lit</span> : <span class="dt">string</span> → (&#39;a, &#39;a) fmt
+  | <span class="dt">Cat</span> : (&#39;a, &#39;b) fmt * (&#39;b, &#39;c) fmt → (&#39;a, &#39;c) fmt
+<span class="kw">let</span> (%) x y = <span class="dt">Cat</span> (x, y)
 
 <span class="co">(* analogous to &quot;(%d, %d)&quot; *)</span>
-<span class="kw">let</span> p = Lit <span class="st">&quot;(&quot;</span> % Int % Lit <span class="st">&quot;,&quot;</span> % Int % Lit <span class="st">&quot;)&quot;</span>
+<span class="kw">let</span> p = <span class="dt">Lit</span> <span class="st">&quot;(&quot;</span> % <span class="dt">Int</span> % <span class="dt">Lit</span> <span class="st">&quot;,&quot;</span> % <span class="dt">Int</span> % <span class="dt">Lit</span> <span class="st">&quot;)&quot;</span>
 
 <span class="kw">let</span> <span class="kw">rec</span> printk :
     <span class="kw">type</span> &#39;a &#39;b. (<span class="dt">string</span> → &#39;b) → (&#39;a, &#39;b) fmt → &#39;a =
   <span class="kw">fun</span> k → <span class="kw">function</span>
-    Int → <span class="kw">fun</span> s → k (<span class="dt">string_of_int</span> s)
-  | Lit s → k s
-  | Cat (l, r) →
+    <span class="dt">Int</span> → <span class="kw">fun</span> s → k (string_of_int s)
+  | <span class="dt">Lit</span> s → k s
+  | <span class="dt">Cat</span> (l, r) →
       printk (<span class="kw">fun</span> x → printk (<span class="kw">fun</span> y → k (x ˆ y)) r) l
 
 <span class="kw">let</span> sprintf fmt = printk (<span class="kw">fun</span> x → x) fmt</code></pre></div>
@@ -148,49 +148,49 @@ macro power n =
 <p>The <code>sprintf</code> abstraction is more pleasant than writing by hand <code>&quot;(&quot; ^ string_of_int 3 ^ &quot;,&quot; ^ string_of_int 4 ^ &quot;)&quot;</code>, but it comes at an interpretative cost.</p>
 <p>To avoid this cost, the <code>printk</code> function can be staged into a macro:</p>
 <div class="sourceCode"><pre class="sourceCode ocaml"><code class="sourceCode ocaml"><span class="kw">type</span> (_, _) fmt =
-    Int : (<span class="dt">int</span> -&gt; &#39;a, &#39;a) fmt
-  | Lit : <span class="dt">string</span> -&gt; (&#39;a, &#39;a) fmt
-  | Cat : (&#39;a, &#39;b) fmt * (&#39;b, &#39;c) fmt -&gt; (&#39;a, &#39;c) fmt
+    <span class="dt">Int</span> : (<span class="dt">int</span> -&gt; &#39;a, &#39;a) fmt
+  | <span class="dt">Lit</span> : <span class="dt">string</span> -&gt; (&#39;a, &#39;a) fmt
+  | <span class="dt">Cat</span> : (&#39;a, &#39;b) fmt * (&#39;b, &#39;c) fmt -&gt; (&#39;a, &#39;c) fmt
 
-static (%) x y = Cat (x, y)
+static (%) x y = <span class="dt">Cat</span> (x, y)
 
 macro <span class="kw">rec</span> printk :
     <span class="kw">type</span> a b. (<span class="dt">string</span> expr -&gt; b expr) -&gt; (a, b) fmt -&gt; a expr =
   <span class="kw">fun</span> k -&gt; <span class="kw">function</span>
-  | Int -&gt; <span class="st">&lt;&lt; fun s -&gt; $(k &lt;&lt;string_of_int s&gt;&gt;) &gt;&gt;</span>
-  | Lit s -&gt; k (Expr.of_string s)
-  | Cat (l, r) -&gt;
+  | <span class="dt">Int</span> -&gt; <span class="st">&lt;&lt; fun s -&gt; $(k &lt;&lt;string_of_int s&gt;&gt;) &gt;&gt;</span>
+  | <span class="dt">Lit</span> s -&gt; k (Expr<span class="kw">.</span>of_string s)
+  | <span class="dt">Cat</span> (l, r) -&gt;
       printk (<span class="kw">fun</span> x -&gt;
         printk (<span class="kw">fun</span> y -&gt; k <span class="st">&lt;&lt; $x ^ $y &gt;&gt;</span>) r) l
 
 macro sprintf fmt = printk (<span class="kw">fun</span> x -&gt; x) fmt</code></pre></div>
 <p>We may then write a function that prints a pair:</p>
-<div class="sourceCode"><pre class="sourceCode ocaml"><code class="sourceCode ocaml"># static p = Lit <span class="st">&quot;(&quot;</span> % Int % Lit <span class="st">&quot;,&quot;</span> % Int % Lit <span class="st">&quot;)&quot;</span>;;
+<div class="sourceCode"><pre class="sourceCode ocaml"><code class="sourceCode ocaml"># static p = <span class="dt">Lit</span> <span class="st">&quot;(&quot;</span> % <span class="dt">Int</span> % <span class="dt">Lit</span> <span class="st">&quot;,&quot;</span> % <span class="dt">Int</span> % <span class="dt">Lit</span> <span class="st">&quot;)&quot;</span>;;
 static <span class="kw">val</span> p : (<span class="dt">int</span> -&gt; <span class="dt">int</span> -&gt; &#39;_a, &#39;_a) fmt =
-  Cat (Cat (Cat (Cat (Lit <span class="st">&quot;(&quot;</span>, Int), Lit <span class="st">&quot;,&quot;</span>), Int), Lit <span class="st">&quot;)&quot;</span>)
+  <span class="dt">Cat</span> (<span class="dt">Cat</span> (<span class="dt">Cat</span> (<span class="dt">Cat</span> (<span class="dt">Lit</span> <span class="st">&quot;(&quot;</span>, <span class="dt">Int</span>), <span class="dt">Lit</span> <span class="st">&quot;,&quot;</span>), <span class="dt">Int</span>), <span class="dt">Lit</span> <span class="st">&quot;)&quot;</span>)
 # <span class="kw">let</span> print_pair = $(sprintf p);;
 splice #<span class="dv">0</span>:
 <span class="kw">fun</span> s_1  -&gt;
              <span class="kw">fun</span> s_2  -&gt;
-               Pervasives<span class="co">(*global*)</span>.(^)
-                 (Pervasives<span class="co">(*global*)</span>.(^)
-                    (Pervasives<span class="co">(*global*)</span>.(^)
-                       (Pervasives<span class="co">(*global*)</span>.(^) <span class="st">&quot;(&quot;</span>
-                          (Pervasives<span class="co">(*global*)</span>.<span class="dt">string_of_int</span> s_1)) <span class="st">&quot;,&quot;</span>)
-                    (Pervasives<span class="co">(*global*)</span>.<span class="dt">string_of_int</span> s_2)) <span class="st">&quot;)&quot;</span>
+               <span class="dt">Pervasives</span><span class="co">(*global*)</span>.(^)
+                 (<span class="dt">Pervasives</span><span class="co">(*global*)</span>.(^)
+                    (<span class="dt">Pervasives</span><span class="co">(*global*)</span>.(^)
+                       (<span class="dt">Pervasives</span><span class="co">(*global*)</span>.(^) <span class="st">&quot;(&quot;</span>
+                          (<span class="dt">Pervasives</span><span class="co">(*global*)</span>.string_of_int s_1)) <span class="st">&quot;,&quot;</span>)
+                    (<span class="dt">Pervasives</span><span class="co">(*global*)</span>.string_of_int s_2)) <span class="st">&quot;)&quot;</span>
 <span class="kw">val</span> print_pair : <span class="dt">int</span> -&gt; <span class="dt">int</span> -&gt; <span class="dt">string</span> = &lt;<span class="kw">fun</span>&gt;</code></pre></div>
 <p>We get the abstraction we wanted at zero interpretative cost.</p>
 <h2 id="integration-within-modules">Integration within modules</h2>
 <p>We want macros to be seamlessly integrated into OCaml's module system.</p>
 <p>For example, modules can export static values as well as regular values. The above printing functions could be gathered in a <code>sprintf.ml</code> file. A <code>sprintf.mli</code> interface file may then be written:</p>
 <div class="sourceCode"><pre class="sourceCode ocaml"><code class="sourceCode ocaml"><span class="kw">type</span> (_, _) fmt =
-    Int : (<span class="dt">int</span> -&gt; &#39;a, &#39;a) fmt
-  | Lit : <span class="dt">string</span> -&gt; (&#39;a, &#39;a) fmt
-  | Cat : (&#39;a, &#39;b) fmt * (&#39;b, &#39;c) fmt -&gt; (&#39;a, &#39;c) fmt
+    <span class="dt">Int</span> : (<span class="dt">int</span> -&gt; &#39;a, &#39;a) fmt
+  | <span class="dt">Lit</span> : <span class="dt">string</span> -&gt; (&#39;a, &#39;a) fmt
+  | <span class="dt">Cat</span> : (&#39;a, &#39;b) fmt * (&#39;b, &#39;c) fmt -&gt; (&#39;a, &#39;c) fmt
 static <span class="kw">val</span> ( % ) : (&#39;a, &#39;b) fmt -&gt; (&#39;b, &#39;c) fmt -&gt; (&#39;a, &#39;c) fmt = &lt;<span class="kw">fun</span>&gt;
 macro sprintf : (&#39;a, <span class="dt">string</span>) fmt -&gt; &#39;a expr = &lt;<span class="kw">fun</span>&gt;</code></pre></div>
 <p>We have hidden <code>printk</code> and exported only <code>sprintf</code>.</p>
-<p>The static components of the <code class="sourceCode ocaml">Sprintf</code> module will be saved to a <code>sprintf.cmm</code> file (the format is the same as for <code>.cmo</code> files). The <code>sprintf</code> macro can now be used in other files.</p>
+<p>The static components of the <code class="sourceCode ocaml"><span class="dt">Sprintf</span></code> module will be saved to a <code>sprintf.cmm</code> file (the format is the same as for <code>.cmo</code> files). The <code>sprintf</code> macro can now be used in other files.</p>
 <h2 id="path-closures">Path closures</h2>
 <p>Consider again the <code class="sourceCode ocaml">power&#39;</code> macro from above:</p>
 <div class="sourceCode"><pre class="sourceCode ocaml"><code class="sourceCode ocaml">macro <span class="kw">rec</span> power&#39; n x =
@@ -211,7 +211,7 @@ macro y : <span class="dt">unit</span> -&gt; <span class="dt">int</span> expr = 
 - : <span class="dt">int</span> expr = <span class="st">&lt;&lt; y.x(*0*) &gt;&gt;</span></code></pre></div>
 <p>The meaning of <code class="sourceCode ocaml">y.x<span class="co">(*0*)</span></code> is: field of index 0 in the path closure of macro <code>y</code>. For clarity, along with the field index is printed the name of the field, i.e. <code>x</code>.</p>
 <p>To go back to our slightly more complicated <code>power</code> example:</p>
-<div class="sourceCode"><pre class="sourceCode ocaml"><code class="sourceCode ocaml"># Power.power <span class="dv">5</span>;;;
+<div class="sourceCode"><pre class="sourceCode ocaml"><code class="sourceCode ocaml"># Power<span class="kw">.</span>power <span class="dv">5</span>;;;
 - : (<span class="dt">int</span> -&gt; <span class="dt">int</span>) expr =
 <span class="st">&lt;&lt; fun x_2  -&gt;</span>
 <span class="st">     Pervasives(*global*).( * ) x_2</span>
@@ -221,28 +221,28 @@ macro y : <span class="dt">unit</span> -&gt; <span class="dt">int</span> expr = 
 <p>This quote tells us that the runtime function <code>square</code> can be found in the closure of macro <code>power'</code>, field 0. Additionnally, <code>power'</code> itself is in the closure of <code>power</code> (necessary because <code>power'</code> might be out of scope, just like <code>square</code>).</p>
 <h2 id="static-modules-and-functors">Static modules and functors</h2>
 <p>If a module or a functor is intended to contain only <code>static</code> definitions, you can make it static:</p>
-<div class="sourceCode"><pre class="sourceCode ocaml"><code class="sourceCode ocaml">static <span class="kw">module</span> F(X : <span class="kw">sig</span>
-  <span class="kw">val</span> <span class="dt">succ</span> : <span class="dt">int</span> -&gt; <span class="dt">int</span>
+<div class="sourceCode"><pre class="sourceCode ocaml"><code class="sourceCode ocaml">static <span class="ot">module</span> F(<span class="dt">X</span> : <span class="kw">sig</span>
+  <span class="kw">val</span> succ : <span class="dt">int</span> -&gt; <span class="dt">int</span>
 <span class="kw">end</span>) = <span class="kw">struct</span>
-  <span class="kw">let</span> x = X.<span class="dt">succ</span> <span class="dv">42</span>
+  <span class="kw">let</span> x = X<span class="kw">.</span>succ <span class="dv">42</span>
 <span class="kw">end</span>
 
-static <span class="kw">module</span> M = F(^Pervasives)
+static <span class="ot">module</span> M = <span class="dt">F</span>(~<span class="dt">Pervasives</span>)
 <span class="co">(* M.x = 43 *)</span></code></pre></div>
 <p>Note that static functors can only take static modules as their arguments. Also, <code class="sourceCode ocaml"><span class="kw">let</span></code> is used instead of <code class="sourceCode ocaml">static</code> in a static module.</p>
 <h2 id="passing-values-between-phases">Passing values between phases</h2>
 <p>Imagine you have a compile-time integer (not an <code class="sourceCode ocaml"><span class="dt">int</span> expr</code>, a real <code class="sourceCode ocaml"><span class="dt">int</span></code>) and you want to use in your runtime code. This is done via <code>Expr.of_int</code> of type <code class="sourceCode ocaml"><span class="dt">int</span> -&gt; <span class="dt">int</span> expr</code>:</p>
 <div class="sourceCode"><pre class="sourceCode ocaml"><code class="sourceCode ocaml">static x = <span class="dv">42</span>
 
-<span class="kw">let</span> () = <span class="dt">Printf</span>.printf <span class="st">&quot;%d</span><span class="ch">\n</span><span class="st">&quot;</span> $(Expr.of_int x)</code></pre></div>
-<p><code class="sourceCode ocaml">Expr</code> is a new module of the standard library, containing functions for all the standard types: <code>of_int</code>, <code>of_float</code>, <code>of_list</code>… However, if you need to pass a value of a custom type, you have to write the translation function yourself:</p>
-<div class="sourceCode"><pre class="sourceCode ocaml"><code class="sourceCode ocaml"><span class="kw">type</span> t = A | B <span class="kw">of</span> <span class="dt">int</span>
+<span class="kw">let</span> () = Printf<span class="kw">.</span>printf <span class="st">&quot;%d</span><span class="ch">\n</span><span class="st">&quot;</span> $(Expr<span class="kw">.</span>of_int x)</code></pre></div>
+<p><code class="sourceCode ocaml"><span class="dt">Expr</span></code> is a new module of the standard library, containing functions for all the standard types: <code>of_int</code>, <code>of_float</code>, <code>of_list</code>… However, if you need to pass a value of a custom type, you have to write the translation function yourself:</p>
+<div class="sourceCode"><pre class="sourceCode ocaml"><code class="sourceCode ocaml"><span class="kw">type</span> t = <span class="dt">A</span> | <span class="dt">B</span> <span class="kw">of</span> <span class="dt">int</span>
 
-static x = B <span class="dv">42</span>
+static x = <span class="dt">B</span> <span class="dv">42</span>
 
 macro expr_of_t = <span class="kw">function</span>
-  | A -&gt; <span class="st">&lt;&lt; A &gt;&gt;</span>
-  | B x -&gt; <span class="st">&lt;&lt; B $(Expr.of_int x) &gt;&gt;</span>
+  | <span class="dt">A</span> -&gt; <span class="st">&lt;&lt; A &gt;&gt;</span>
+  | <span class="dt">B</span> x -&gt; <span class="st">&lt;&lt; B $(Expr.of_int x) &gt;&gt;</span>
 
 <span class="kw">let</span> dyn_x = $(expr_of_t x)</code></pre></div>
 <h2 id="implementation-details">Implementation details</h2>
@@ -265,7 +265,7 @@ lambda code (Lambda)
 untyped AST (Parsetree)</code></pre>
 <p>The generated AST is untyped, mainly to avoid the hassle of propagating type information to the generated tree. Instead, the typechecker is called on the quoted tree during splicing.</p>
 <h3 id="splicing">Splicing</h3>
-<p>Static code is constructed in such a way that it returns, when evaluated, an array of untyped ASTs (<code class="sourceCode ocaml">Parsetree.expression <span class="dt">array</span></code>). These ASTs are then typed and inserted in place of the splicings into the big syntax tree of runtime code before it is translated to lambda code.</p>
+<p>Static code is constructed in such a way that it returns, when evaluated, an array of untyped ASTs (<code class="sourceCode ocaml">Parsetree<span class="kw">.</span>expression <span class="dt">array</span></code>). These ASTs are then typed and inserted in place of the splicings into the big syntax tree of runtime code before it is translated to lambda code.</p>
 <p>In the case of <code>ocamlc.opt</code> and <code>ocamlopt.opt</code>, the splice array needs to be marshalled to a temporary file (since the compiler cannot share memory with an external program).</p>
 <p>Note that the above only applies to <em>toplevel splices</em>, that is, splices that are not in a quotation. Splices inside quotations do not imply any communication between phases, and are only here for the typechecker to keep track of phase. Once the typechecker has done its job, they are mostly ignored.</p>
 <h2 id="testing-and-contributing">Testing and contributing</h2>
