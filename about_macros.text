@@ -464,8 +464,8 @@ You are very welcome to try out macros. It will be very useful if you report any
 bugs or inconvenience by opening an issue on this repo.
 
 If you want to set up an Opam switch with our version of the compiler, you must
-be aware that some Opam packages may not compile. For details, see the
-[readme](https://github.com/OlivierNicole/ocaml/blob/macros/README.adoc).
+be aware that there is currently no working version of `camlp4` that
+compiles with the macro compiler, but hopefully this will be fixed soon.
 
 Let me know if you write something nice involving macros!
 
